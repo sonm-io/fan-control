@@ -1,0 +1,15 @@
+[Unit]
+Description=Manually set fan speed to given value (/etc/sonm/fan-control.txt)
+After=sonm-mon.service
+BindTo=sonm-mon.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/sonm-fan-control.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
