@@ -13,7 +13,7 @@ if [ -z $(which sonmmon) ]; then
     exit 1
 fi
 
-github_url='https://raw.githubusercontent.com/avsigaev/fan-control'
+github_url='https://raw.githubusercontent.com/sonm-io/fan-control'
 branch='master'
 
 wget -q ${github_url}/${branch}/fan-control.txt -O /etc/sonm/fan-control.txt
