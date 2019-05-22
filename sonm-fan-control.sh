@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
 
+# Exit script as soon as a command fails.
+set -o errexit
+
+# Executes cleanup function at script exit.
+trap cleanup EXIT
+
 export $(cat /etc/sonm/fan-control.txt)
 export DISPLAY=:0
 CARDS_NUM=`nvidia-smi -L | wc -l`
 DELAY=5
+
+cleanup() {
+    for ((i=0; i<$CARDS_NUM; i++)); do
+		nvidia-settings -a [gpu:$i]/GPUFanControlState=0
+		if [ "$?" -ne 0 ]; then
+			exit 1;
+		fi
+	done
+}
+
 
 if [[ "$(id -u)" != "0" ]]; then
    echo "This script must be run as superuser"
