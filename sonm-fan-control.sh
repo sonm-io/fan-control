@@ -14,9 +14,6 @@ DELAY=5
 cleanup() {
     for ((i=0; i<$CARDS_NUM; i++)); do
 		nvidia-settings -a [gpu:$i]/GPUFanControlState=0
-		if [ "$?" -ne 0 ]; then
-			exit 1;
-		fi
 	done
 }
 
