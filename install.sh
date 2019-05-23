@@ -14,7 +14,12 @@ if [ -z $(which sonmmon) ]; then
 fi
 
 github_url='https://raw.githubusercontent.com/sonm-io/fan-control'
-branch='master'
+
+if ! [[ -z $1 ]]; then
+	branch=$1
+else
+	branch='master'
+fi
 
 wget -q ${github_url}/${branch}/fan-control.txt -O /etc/sonm/fan-control.txt
 wget -q ${github_url}/${branch}/sonm-xorg-config.service -O /etc/systemd/system/sonm-xorg-config.service
@@ -30,6 +35,6 @@ systemctl daemon-reload
 systemctl enable sonm-fan-control.service
 systemctl enable sonm-xorg-config.service
 systemctl restart sonm-mon.service
-systemctl start sonm-fan-control.service
+systemctl restart sonm-fan-control.service
 
 echo Done
