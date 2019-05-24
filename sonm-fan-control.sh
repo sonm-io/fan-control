@@ -28,7 +28,7 @@ if ! lspci -nm | grep '"\(0300\|0302\)" "10de"' 2>&1 >/dev/null; then
     exit 0
 fi
 
-echo "Found ${CARDS_NUM} GPU(s) : MIN ${MIN_TEMP}°C - ${MAX_TEMP}°C MAX : Delay ${DELAY}s"
+echo "Found ${CARDS_NUM} GPU(s) ; MIN ${MIN_TEMP}°C - ${MAX_TEMP}°C MAX ; Min fan speed ${MIN_FAN_SPEED} : Delay ${DELAY}s"
 
 for ((i=0; i<$CARDS_NUM; i++)); do
 	nvidia-settings -a [gpu:$i]/GPUFanControlState=1 2>&1 1>/dev/null
@@ -43,11 +43,11 @@ while true; do
 	for ((i=0; i<$CARDS_NUM; i++)); do
 		GPU_TEMP=`nvidia-smi -i $i --query-gpu=temperature.gpu --format=csv,noheader`
 		if [[ $GPU_TEMP -lt $MIN_TEMP ]]; then
-			FAN_SPEED=0
+			FAN_SPEED=$MIN_FAN_SPEED
 		elif [[ $GPU_TEMP -gt $MAX_TEMP ]]; then
 			FAN_SPEED=100
 		else
-			FAN_SPEED=$(( ($GPU_TEMP - $MIN_TEMP)*100/($MAX_TEMP - $MIN_TEMP) ))
+			FAN_SPEED=$(( $MIN_FAN_SPEED + ($GPU_TEMP - $MIN_TEMP)*(100 - $MIN_FAN_SPEED)/($MAX_TEMP - $MIN_TEMP) ))
 		fi
 		nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=$FAN_SPEED 2>&1 1>/dev/null
 		echo "GPU${i} ${GPU_TEMP}°C, fan -> ${FAN_SPEED}%"
