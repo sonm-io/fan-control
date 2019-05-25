@@ -13,6 +13,8 @@ DELAY=5
 
 cleanup() {
     for ((i=0; i<$CARDS_NUM; i++)); do
+    	echo "INFO: Exit. Setting fan speed for GPU${i} to 100%"
+    	nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=100 1>/dev/null
 		nvidia-settings -a [gpu:$i]/GPUFanControlState=0
 	done
 }
