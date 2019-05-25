@@ -32,7 +32,7 @@ echo "INFO: Found ${CARDS_NUM} GPU(s)"
 echo "INFO: Settings: TEMP: Min ${MIN_TEMP}°C, Max ${MAX_TEMP}°C, Critical ${CRIT_TEMP}°C; Min fan speed ${MIN_FAN_SPEED}% : Delay ${DELAY}s"
 
 for ((i=0; i<$CARDS_NUM; i++)); do
-	nvidia-settings -a [gpu:$i]/GPUFanControlState=1 2>&1 1>/dev/null
+	nvidia-settings -a [gpu:$i]/GPUFanControlState=1 1>/dev/null
 	if [ "$?" -ne 0 ]; then
 		exit 1
 	fi
@@ -55,12 +55,8 @@ while true; do
 		else
 			FAN_SPEED=$(( $MIN_FAN_SPEED + ($GPU_TEMP - $MIN_TEMP)*(100 - $MIN_FAN_SPEED)/($MAX_TEMP - $MIN_TEMP) ))
 		fi
-		nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=$FAN_SPEED 2>&1 1>/dev/null
-		if [ "$?" -ne 0 ]; then
-			echo "ERROR: GPU${i} - Cannot set fan speed to ${FAN_SPEED}% (GPU temp is ${GPU_TEMP}°C)"
-		else
-			echo "INFO: GPU${i} ${GPU_TEMP}°C, fan -> ${FAN_SPEED}%"
-		fi
+		echo "INFO: GPU${i} ${GPU_TEMP}°C, fan -> ${FAN_SPEED}%"
+		nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=$FAN_SPEED 1>/dev/null
 	done
 	sleep $DELAY
 done
