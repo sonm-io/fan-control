@@ -11,9 +11,12 @@ Suitable only for:
 ## Adjusting temperature range
 
 By default:
-- MIN temp=50 (fan speed will be set to 0, if temperature drops below this value), 
-- MAX temp=70 (fan speed will be set to 100 if temperature rises above this value),
-- Between MIN and MAX fan speed adjust graguatelly.
+- MIN fan speed = 40% (when GPU temp is below MIN temp),
+- MIN temp=50˚C, 
+- MAX temp=70˚C (fan speed will be set to 100 if temperature rises above this value),
+- Between MIN and MAX fan speed adjust graguatelly,
+- CRITICAL GPU temp = 87˚C (when GPU temp exceed this value, script initiates force reboot).
+
 
 If you want to change this values: 
 - edit /etc/sonm/fan-control.txt
