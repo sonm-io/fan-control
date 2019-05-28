@@ -1,4 +1,13 @@
+# Set min fan speed at range 0-100. This fan speed will be applied when GPU temp <= MIN_TEMP.
 MIN_FAN_SPEED=40
+
+# Between MIN_TEMP and MAX_TEMP adjust fan speed graguatelly
 MIN_TEMP=50
+
+# Fan speed will be set to 100 if temperature rises above MAX_TEMP
 MAX_TEMP=70
+
+# Force reboot if GPU temp arizes above CRIT_TEMP
 CRIT_TEMP=87
+
+
