@@ -7,7 +7,7 @@ Before=multi-user.target
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 10
-ExecStart=/usr/bin/sonm-fan-control.sh
+ExecStart=/usr/bin/sonm-fan-control
 Restart=on-failure
 
 [Install]
