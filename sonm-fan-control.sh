@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION="0.2.1"
+VERSION="0.2.2"
 
 # Executes cleanup function at script exit.
 trap cleanup EXIT
@@ -78,7 +78,7 @@ reload_config() {
 }
 
 get_gpu_temp() {
-		local temp=$(nvidia-smi -i $1 --query-gpu=temperature.gpu --format=csv,noheader)
+		temp=$(nvidia-smi -i $1 --query-gpu=temperature.gpu --format=csv,noheader)
 		ERR=$?
 
 		if ! [[ $ERR -eq 0 ]]; then
