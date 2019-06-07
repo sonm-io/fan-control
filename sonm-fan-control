@@ -59,7 +59,7 @@ init() {
 }
 
 print_config() {
-	echo "INFO: Fan control settings: TEMP: Min ${MIN_TEMP}°C, Max ${MAX_TEMP}°C, Critical ${CRIT_TEMP}°C; Min fan speed ${MIN_FAN_SPEED}% : Delay ${DELAY}s :"
+	echo "INFO: Fan control settings: TEMP: Min ${MIN_TEMP}°C, Max ${MAX_TEMP}°C, Critical ${CRIT_TEMP}°C; Min fan speed ${MIN_FAN_SPEED}% : "
 	echo "PL MANAGEMENT: ${MANAGE_PL} (1-on, 0-off), MaxPL ${MAX_PL}%, MinPL ${MIN_PL}%; PL change step ${PL_CHANGE_STEP}W"
 }
 
