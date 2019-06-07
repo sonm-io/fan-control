@@ -8,7 +8,7 @@ Before=multi-user.target
 Type=simple
 ExecStartPre=/bin/sleep 10
 ExecStart=/usr/bin/sonm-fan-control
-Restart=on-failure
+Restart=always
 
 [Install]
 WantedBy=multi-user.target

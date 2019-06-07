@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 
-VERSION="0.3.0"
-
-# Executes cleanup function at script exit.
-trap cleanup EXIT
+VERSION="0.3.1"
 
 cleanup() {
     for ((i=0; i<$CARDS_NUM; i++)); do
     	echo "INFO: Exit. Transfer fan control to driver."
 		nvidia-settings -a [gpu:$i]/GPUFanControlState=0
+		if ! [[ $? -eq 0 ]]; then
+			echo "CRITICAL: Failed to transfer fan control to the driver. Forcing reboot.."
+			reboot
+		fi
 		if [[ $MANAGE_PL -eq 1 ]]; then
 			echo "INFO: Adjusting PL for GPU${i} to default value: ${pl_current[$i]} -> ${pl_defaults[$i]}"
 			nvidia-smi -i $i -pl ${pl_defaults[$i]} &>1
+			nvidia-smi -pm 0
 		fi
 	done
-	nvidia-smi -pm 0
 }
 
 init() {
@@ -31,7 +32,7 @@ init() {
 
 	export DISPLAY=:0
 	reload_config
-	CARDS_NUM=`nvidia-smi -L | wc -l`
+	CARDS_NUM=`nvidia-smi -L | grep UUID | wc -l`
 	DELAY=5
 
 	echo "INFO: Found ${CARDS_NUM} GPU(s)"
@@ -58,10 +59,12 @@ init() {
 }
 
 print_config() {
-	echo "INFO: Settings: TEMP: Min ${MIN_TEMP}°C, Max ${MAX_TEMP}°C, Critical ${CRIT_TEMP}°C; Min fan speed ${MIN_FAN_SPEED}% : Delay ${DELAY}s"
+	echo "INFO: Fan control settings: TEMP: Min ${MIN_TEMP}°C, Max ${MAX_TEMP}°C, Critical ${CRIT_TEMP}°C; Min fan speed ${MIN_FAN_SPEED}% : Delay ${DELAY}s :"
+	echo "PL MANAGEMENT: ${MANAGE_PL} (1-on, 0-off), MaxPL ${MAX_PL}%, MinPL ${MIN_PL}%; PL change step ${PL_CHANGE_STEP}W"
 }
 
 reload_config() {
+	MANAGE_PL_OLD=$MANAGE_PL
 	export $(cat /etc/sonm/fan-control.cfg | grep -v "#")
 	if [[ -z $SETTINGS_TS ]]; then
 		SETTINGS_TS=$(date +%s)
@@ -71,6 +74,7 @@ reload_config() {
 		echo "INFO: Detected config change"
 		echo $(print_config)
 		SETTINGS_TS=$(date +%s)
+		switch_pl
 	fi
 
 	# check config
@@ -87,14 +91,24 @@ reload_config() {
 		echo "ERROR: Configuration error, MIN_FAN_SPEED>=100"
 		exit 1
 	fi
-
-	#TODO: Handle PL management on/off
-	#TODO: Handle fan-control on/off (new setting in config)
+	
 	return 0
 }
 
+switch_pl() {
+	set_pl_defaults
+	if [[ $(( $MANAGE_PL - $MANAGE_PL_OLD )) -gt 0 ]]; then
+		echo "INFO: PL management is ENABLED in config"
+		enable_pm
+		set_init_pl
+	elif [[ $(( $MANAGE_PL - $MANAGE_PL_OLD )) -lt 0 ]]; then
+		echo "INFO: PL management is DISABLED in config"
+		disable_pm
+	fi
+}
+
 get_gpu_temp() {
-		local temp=$(nvidia-smi -i $1 --query-gpu=temperature.gpu --format=csv,noheader)
+		temp=$(nvidia-smi -i $1 --query-gpu=temperature.gpu --format=csv,noheader)
 		ERR=$?
 
 		if ! [[ $ERR -eq 0 ]]; then
@@ -136,11 +150,22 @@ enable_pm() {
 	nvidia-smi -pm 1 &>1
 }
 
+disable_pm() {
+	echo "INFO: Switching to default PL settings.."
+	for ((i=0; i<$CARDS_NUM; i++)); do
+		nvidia-smi -i $i -pl ${pl_defaults[$i]} &>1
+		# TODO: Handle errors
+		echo "INFO: PL for GPU${i} adjusted to ${pl_defaults[$i]}"
+	done
+	echo "INFO: Disabling persistamce mode.."
+	nvidia-smi -pm 0 &>1
+}
+
 adjust_pl() {
 	# TODO: Handle errors
-	local new_pl=0
+	new_pl=0
 
-	if [[ $2 -gt $MAX_TEMP ]]; then
+	if [[ $2 -gt $(( $MAX_TEMP + 5 )) ]]; then
 		new_pl=$(( ${pl_current[$1]} - $PL_CHANGE_STEP ))
 		if [[ $new_pl -lt ${pl_min[$1]} ]]; then
 			new_pl=${pl_min[$1]}
@@ -163,31 +188,45 @@ adjust_pl() {
 	fi
 }
 
-init
+if [[ -z $1 ]]; then
 
-while true; do
-	for ((i=0; i<$CARDS_NUM; i++)); do
-		GPU_TEMP=$(get_gpu_temp $i)
+	# Executes cleanup function at script exit.
+	trap cleanup EXIT
 
-		if [[ $GPU_TEMP -lt $MIN_TEMP ]]; then
-			FAN_SPEED=$MIN_FAN_SPEED
+	init
 
-		elif [[ $GPU_TEMP -gt $MAX_TEMP ]]; then
-			echo "WARN: GPU${i} temp ${GPU_TEMP}°C"
-			FAN_SPEED=100
+	while true; do
+		for ((i=0; i<$CARDS_NUM; i++)); do
+			GPU_TEMP=$(get_gpu_temp $i)
 
-		else
-			FAN_SPEED=$(( $MIN_FAN_SPEED + ($GPU_TEMP - $MIN_TEMP)*(100 - $MIN_FAN_SPEED)/($MAX_TEMP - $MIN_TEMP) ))
-		fi
+			if [[ $GPU_TEMP -lt $MIN_TEMP ]]; then
+				FAN_SPEED=$MIN_FAN_SPEED
 
-		echo "INFO: GPU${i} ${GPU_TEMP}°C, fan -> ${FAN_SPEED}%"
-		nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=$FAN_SPEED 1>/dev/null
+			elif [[ $GPU_TEMP -gt $MAX_TEMP ]]; then
+				echo "WARN: GPU${i} temp ${GPU_TEMP}°C"
+				FAN_SPEED=100
 
-		if [[ $MANAGE_PL -eq 1 ]]; then
-			adjust_pl $i $GPU_TEMP
-		fi
+			else
+				FAN_SPEED=$(( $MIN_FAN_SPEED + ($GPU_TEMP - $MIN_TEMP)*(100 - $MIN_FAN_SPEED)/($MAX_TEMP - $MIN_TEMP) ))
+			fi
+
+			echo "INFO: GPU${i} ${GPU_TEMP}°C, fan -> ${FAN_SPEED}%"
+			nvidia-settings -a [fan:$i]/GPUTargetFanSpeed=$FAN_SPEED 1>/dev/null
+
+			if [[ $MANAGE_PL -eq 1 ]]; then
+				adjust_pl $i $GPU_TEMP
+			fi
+		done
+
+		sleep $DELAY
+		reload_config
 	done
+fi
 
-	sleep $DELAY
-	reload_config
-done
+if [[ $1 == "version" ]]; then
+	echo "Sonm-fan-control service, version ${VERSION}"
+	export $(cat /etc/sonm/fan-control.cfg | grep -v "#")
+	print_config
+else
+	echo "Unknown argument"
+fi
