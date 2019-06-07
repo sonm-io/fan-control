@@ -13,9 +13,9 @@ cleanup() {
 		if [[ $MANAGE_PL -eq 1 ]]; then
 			echo "INFO: Adjusting PL for GPU${i} to default value: ${pl_current[$i]} -> ${pl_defaults[$i]}"
 			nvidia-smi -i $i -pl ${pl_defaults[$i]} &>1
-			nvidia-smi -pm 0
 		fi
 	done
+	nvidia-smi -pm 0
 }
 
 init() {
