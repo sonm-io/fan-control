@@ -1,33 +1,46 @@
 #!/usr/bin/env bash
 
-VERSION="0.3.1"
+VERSION="0.3.2"
 
 cleanup() {
-    echo "INFO: Exit. Transfer fan control to driver."
-    for ((i=0; i<$CARDS_NUM; i++)); do
-		nvidia-settings -a [gpu:$i]/GPUFanControlState=0
-		if ! [[ $? -eq 0 ]]; then
-			echo "CRITICAL: Failed to transfer fan control to the driver. Forcing reboot.."
-			reboot
-		fi
-		if [[ $MANAGE_PL -eq 1 ]]; then
-			echo "INFO: Adjusting PL for GPU${i} to default value: ${pl_current[$i]} -> ${pl_defaults[$i]}"
-			nvidia-smi -i $i -pl ${pl_defaults[$i]} &>1
-		fi
-	done
-	nvidia-smi -pm 0
+    if [[ $FAIL_TO_START -eq 0 ]]; then
+	    echo "INFO: Exit. Transfer fan control to driver."
+	    for ((i=0; i<$CARDS_NUM; i++)); do
+			nvidia-settings -a [gpu:$i]/GPUFanControlState=0
+			if ! [[ $? -eq 0 ]]; then
+				echo "CRITICAL: Failed to transfer fan control to the driver. Forcing reboot.."
+				reboot
+			fi
+			if [[ $MANAGE_PL -eq 1 ]]; then
+				echo "INFO: Adjusting PL for GPU${i} to default value: ${pl_current[$i]} -> ${pl_defaults[$i]}"
+				nvidia-smi -i $i -pl ${pl_defaults[$i]} &>1
+			fi
+		done
+		nvidia-smi -pm 0
+	else
+		echo "INFO: Exit. Fan-control failed to start."
+	fi
 }
 
 init() {
+	FAIL_TO_START=0
 	echo "Sonm-fan-control service, version ${VERSION}"
 	if [[ "$(id -u)" != "0" ]]; then
 	   echo "ERROR: This script must be run as superuser"
+	   FAIL_TO_START=1
 	   exit 1
 	fi
 
 	if ! lspci -nm | grep '"\(0300\|0302\)" "10de"' 2>&1 >/dev/null; then
 	    echo "ERROR: No NVIDIA GPUs detected"
+	    FAIL_TO_START=1
 	    exit 0
+	fi
+
+	if ! [ -f /usr/bin/nvidia-settings ]; then
+		echo "ERROR: Nvidia-settings not installed, exit.."
+		FAIL_TO_START=1
+		exit 1
 	fi
 
 	export DISPLAY=:0
@@ -91,7 +104,7 @@ reload_config() {
 		echo "ERROR: Configuration error, MIN_FAN_SPEED>=100"
 		exit 1
 	fi
-	
+
 	return 0
 }
 
@@ -146,7 +159,7 @@ set_init_pl() {
 }
 
 enable_pm() {
-	echo "INFO: Enabling persistamce mode.."
+	echo "INFO: Enabling persistence mode.."
 	nvidia-smi -pm 1 &>1
 }
 
@@ -157,7 +170,7 @@ disable_pm() {
 		# TODO: Handle errors
 		echo "INFO: PL for GPU${i} adjusted to ${pl_defaults[$i]}"
 	done
-	echo "INFO: Disabling persistamce mode.."
+	echo "INFO: Disabling persistence mode.."
 	nvidia-smi -pm 0 &>1
 }
 
@@ -170,7 +183,7 @@ adjust_pl() {
 		if [[ $new_pl -lt ${pl_min[$1]} ]]; then
 			new_pl=${pl_min[$1]}
 		fi
-	
+
 	elif [[ $2 -lt $MAX_TEMP ]]; then
 		new_pl=$(( ${pl_current[$1]} + $PL_CHANGE_STEP ))
 		if [[ $new_pl -gt ${pl_max[$1]} ]]; then
